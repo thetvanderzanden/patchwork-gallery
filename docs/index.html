@@ -76,7 +76,13 @@
     .ctrl-btn:hover, .ctrl-select:hover { border-color: var(--accent); }
     .ctrl-btn.active { background: rgba(255,255,255,0.12); border-color: var(--accent); }
 
-    .ctrl-count { font-size: 0.78rem; color: var(--muted); margin-left: auto; }
+    .ctrl-count {
+      font-size: 0.85rem; font-weight: 600;
+      color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 0.4rem 0.75rem; border-radius: 6px;
+      margin-left: auto;
+    }
 
     /* ── MAIN ───────────────────────────────────────────────────────────── */
     main { padding: var(--gap); }
