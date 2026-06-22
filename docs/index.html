@@ -276,9 +276,7 @@
         <span class="ctrl-count" id="photo-count"></span>
       </div>
       <div class="patchwork" id="patchwork"></div>
-      <div id="load-more-wrap" style="display:none; text-align:center; padding:1.5rem 1rem;">
-        <button class="ctrl-btn" id="load-more-btn" style="padding:0.6rem 2rem; font-size:0.9rem;">Load more</button>
-      </div>
+      <div id="scroll-sentinel" style="height:1px;"></div>
     </div>
 
     <!-- Content view -->
@@ -404,7 +402,7 @@
 
       if (!visibleCount && !batch.length) {
         grid.innerHTML = '<p style="color:var(--muted);padding:2rem;">No photos match this filter.</p>';
-        document.getElementById('load-more-wrap').style.display = 'none';
+        // nothing to show
         return;
       }
 
@@ -435,8 +433,6 @@
       });
 
       visibleCount += batch.length;
-      const wrap = document.getElementById('load-more-wrap');
-      wrap.style.display = visibleCount < filteredImages.length ? 'block' : 'none';
     }
 
     document.getElementById('filter-year').addEventListener('change', applyFilters);
@@ -480,7 +476,13 @@
       }
     }
 
-    document.getElementById('load-more-btn').addEventListener('click', appendPage);
+    // ── Infinite scroll via sentinel ──────────────────────────────────────
+    const scrollObserver = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && visibleCount < filteredImages.length) {
+        appendPage();
+      }
+    }, { rootMargin: '400px' });
+    scrollObserver.observe(document.getElementById('scroll-sentinel'));
 
     // ── Fetch content ─────────────────────────────────────────────────────
     async function loadContent() {
