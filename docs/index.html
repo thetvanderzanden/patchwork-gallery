@@ -272,6 +272,9 @@
         <span class="ctrl-count" id="photo-count"></span>
       </div>
       <div class="patchwork" id="patchwork"></div>
+      <div id="load-more-wrap" style="display:none; text-align:center; padding:1.5rem 1rem;">
+        <button class="ctrl-btn" id="load-more-btn" style="padding:0.6rem 2rem; font-size:0.9rem;">Load more</button>
+      </div>
     </div>
 
     <!-- Content view -->
@@ -321,6 +324,9 @@
 
     // ── Fetch images ─────────────────────────────────────────────────────
     let allImages = [];
+    let filteredImages = [];
+    let visibleCount = 0;
+    const PAGE_SIZE = 20;
     let currentIndex = 0;
 
     const MONTHS = ['January','February','March','April','May','June',
@@ -367,22 +373,66 @@
       const month = document.getElementById('filter-month').value;
       const order = document.getElementById('sort-btn').dataset.order;
 
-      let filtered = allImages.filter(img => {
+      filteredImages = allImages.filter(img => {
         const d = parseDate(img.taken);
         if (year  && (!d || d.getFullYear() !== +year))  return false;
         if (month !== '' && (!d || d.getMonth() !== +month)) return false;
         return true;
       });
 
-      filtered.sort((a, b) => {
+      filteredImages.sort((a, b) => {
         const da = parseDate(a.taken), db = parseDate(b.taken);
         const ta = da ? da.getTime() : 0, tb = db ? db.getTime() : 0;
         return order === 'asc' ? ta - tb : tb - ta;
       });
 
-      renderGallery(filtered);
+      visibleCount = 0;
+      document.getElementById('patchwork').innerHTML = '';
+      appendPage();
+
       document.getElementById('photo-count').textContent =
-        `${filtered.length} photo${filtered.length !== 1 ? 's' : ''}`;
+        `${filteredImages.length} photo${filteredImages.length !== 1 ? 's' : ''}`;
+    }
+
+    function appendPage() {
+      const grid = document.getElementById('patchwork');
+      const batch = filteredImages.slice(visibleCount, visibleCount + PAGE_SIZE);
+
+      if (!visibleCount && !batch.length) {
+        grid.innerHTML = '<p style="color:var(--muted);padding:2rem;">No photos match this filter.</p>';
+        document.getElementById('load-more-wrap').style.display = 'none';
+        return;
+      }
+
+      batch.forEach((img) => {
+        const globalIndex = filteredImages.indexOf(img);
+        const patch = document.createElement('div');
+        patch.className = 'patch';
+
+        const el = document.createElement('img');
+        el.src = `${window.API_BASE}/api/image/${img.id}`;
+        el.alt = img.name;
+        el.loading = 'lazy';
+
+        const hoverText = img.location || img.caption || null;
+        if (hoverText) {
+          const overlay = document.createElement('div');
+          overlay.className = 'patch-overlay';
+          const cap = document.createElement('div');
+          cap.className = 'patch-caption';
+          cap.textContent = hoverText;
+          overlay.appendChild(cap);
+          patch.appendChild(overlay);
+        }
+
+        patch.appendChild(el);
+        patch.addEventListener('click', () => openLightbox(globalIndex));
+        grid.appendChild(patch);
+      });
+
+      visibleCount += batch.length;
+      const wrap = document.getElementById('load-more-wrap');
+      wrap.style.display = visibleCount < filteredImages.length ? 'block' : 'none';
     }
 
     document.getElementById('filter-year').addEventListener('change', applyFilters);
@@ -426,40 +476,7 @@
       }
     }
 
-    function renderGallery(images) {
-      const grid = document.getElementById('patchwork');
-      grid.innerHTML = '';
-
-      if (!images.length) {
-        grid.innerHTML = '<p style="color:var(--muted);padding:2rem;">No images found in the Drive folder.</p>';
-        return;
-      }
-
-      images.forEach((img, i) => {
-        const patch = document.createElement('div');
-        patch.className = 'patch';
-
-        const el = document.createElement('img');
-        el.src = `${window.API_BASE}/api/image/${img.id}`;
-        el.alt = img.name;
-        el.loading = 'lazy';
-
-        const hoverText = img.location || img.caption || null;
-        if (hoverText) {
-          const overlay = document.createElement('div');
-          overlay.className = 'patch-overlay';
-          const cap = document.createElement('div');
-          cap.className = 'patch-caption';
-          cap.textContent = hoverText;
-          overlay.appendChild(cap);
-          patch.appendChild(overlay);
-        }
-
-        patch.appendChild(el);
-        patch.addEventListener('click', () => openLightbox(i));
-        grid.appendChild(patch);
-      });
-    }
+    document.getElementById('load-more-btn').addEventListener('click', appendPage);
 
     // ── Fetch content ─────────────────────────────────────────────────────
     async function loadContent() {
