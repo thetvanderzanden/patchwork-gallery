@@ -81,57 +81,50 @@
     #gallery-view { display: none; }
     #gallery-view.active { display: block; }
 
+    /* CSS columns — each image renders at its natural aspect ratio, no cropping */
     .patchwork {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      grid-auto-rows: 220px;
-      gap: var(--gap);
+      columns: 4 200px;
+      column-gap: var(--gap);
     }
 
     .patch {
-      overflow: hidden; border-radius: 4px;
+      break-inside: avoid;
+      margin-bottom: var(--gap);
       position: relative; cursor: pointer;
+      border-radius: 4px; overflow: hidden;
       background: var(--surface);
     }
 
-    /* Patchwork size pattern — cycles every 10 items */
-    .patch[data-size="large"]  { grid-column: span 2; grid-row: span 2; }
-    .patch[data-size="wide"]   { grid-column: span 2; grid-row: span 1; }
-    .patch[data-size="tall"]   { grid-column: span 1; grid-row: span 2; }
-    .patch[data-size="small"]  { grid-column: span 1; grid-row: span 1; }
-
     .patch img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      transition: transform 0.4s ease, filter 0.3s ease;
+      width: 100%; height: auto;
       display: block;
+      transition: transform 0.4s ease, filter 0.3s ease;
     }
 
-    .patch:hover img { transform: scale(1.04); filter: brightness(0.75); }
+    .patch:hover img { transform: scale(1.03); filter: brightness(0.72); }
 
     .patch-overlay {
       position: absolute; inset: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+      background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%);
       opacity: 0; transition: opacity 0.3s;
-      display: flex; align-items: flex-end; padding: 1rem;
+      display: flex; align-items: flex-end; padding: 0.85rem;
     }
 
     .patch:hover .patch-overlay { opacity: 1; }
 
     .patch-caption {
-      color: #fff; font-size: 0.85rem; font-weight: 500;
+      color: #fff; font-size: 0.82rem; font-weight: 500;
       line-height: 1.3; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
     }
 
-    /* Skeleton loader cards */
+    /* Skeleton loaders */
     .patch-skeleton {
-      background: var(--surface);
+      break-inside: avoid;
+      margin-bottom: var(--gap);
       border-radius: 4px;
+      background: var(--surface);
       animation: pulse 1.4s ease-in-out infinite;
     }
-    .patch-skeleton[data-size="large"]  { grid-column: span 2; grid-row: span 2; }
-    .patch-skeleton[data-size="wide"]   { grid-column: span 2; }
-    .patch-skeleton[data-size="tall"]   { grid-row: span 2; }
     @keyframes pulse {
       0%, 100% { opacity: 0.4; }
       50%       { opacity: 0.8; }
@@ -217,14 +210,8 @@
     .lb-next { right: 1rem; }
 
     /* ── RESPONSIVE ─────────────────────────────────────────────────────── */
-    @media (max-width: 900px) {
-      .patchwork { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 180px; }
-    }
-    @media (max-width: 600px) {
-      .patchwork { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
-      .patch[data-size="large"] { grid-column: span 2; grid-row: span 1; }
-      .patch[data-size="tall"]  { grid-row: span 1; }
-    }
+    @media (max-width: 900px) { .patchwork { columns: 3 160px; } }
+    @media (max-width: 600px) { .patchwork { columns: 2 140px; } }
   </style>
 </head>
 <body>
@@ -275,18 +262,6 @@
   </div>
 
   <script>
-    // ── Size pattern for patchwork (repeats every 10 items) ──────────────
-    const SIZE_PATTERN = [
-      'large', 'small', 'small',
-      'wide',  'small',
-      'tall',  'wide',
-      'small', 'small', 'large'
-    ];
-
-    function sizeFor(index) {
-      return SIZE_PATTERN[index % SIZE_PATTERN.length];
-    }
-
     // ── Tab switching ────────────────────────────────────────────────────
     const tabs = document.querySelectorAll('.tab-btn');
     tabs.forEach(btn => btn.addEventListener('click', () => {
@@ -337,10 +312,12 @@
     function showSkeletons() {
       const grid = document.getElementById('patchwork');
       grid.innerHTML = '';
+      // Skeletons with varying heights to mimic natural image proportions
+      const heights = [260, 180, 320, 200, 280, 160, 240, 300, 180, 220];
       for (let i = 0; i < 10; i++) {
         const el = document.createElement('div');
         el.className = 'patch-skeleton';
-        el.dataset.size = sizeFor(i);
+        el.style.height = heights[i] + 'px';
         grid.appendChild(el);
       }
     }
@@ -357,7 +334,6 @@
       images.forEach((img, i) => {
         const patch = document.createElement('div');
         patch.className = 'patch';
-        patch.dataset.size = sizeFor(i);
 
         const el = document.createElement('img');
         el.src = `${window.API_BASE}/api/image/${img.id}`;
