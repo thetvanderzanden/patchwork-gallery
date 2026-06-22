@@ -57,6 +57,26 @@
     .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
     .tab-btn.active { color: var(--text); background: rgba(255,255,255,0.1); }
 
+    /* ── CONTROLS ───────────────────────────────────────────────────────── */
+    .controls {
+      display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+      padding: 0.6rem 0.6rem 0;
+    }
+
+    .ctrl-select, .ctrl-btn {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); font-family: inherit;
+      font-size: 0.8rem; border-radius: 6px;
+      padding: 0.4rem 0.75rem; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .ctrl-select { appearance: none; padding-right: 1.8rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.6rem center; }
+    .ctrl-select:focus, .ctrl-btn:focus { outline: none; border-color: var(--accent); }
+    .ctrl-btn:hover, .ctrl-select:hover { border-color: var(--accent); }
+    .ctrl-btn.active { background: rgba(255,255,255,0.12); border-color: var(--accent); }
+
+    .ctrl-count { font-size: 0.78rem; color: var(--muted); margin-left: auto; }
+
     /* ── MAIN ───────────────────────────────────────────────────────────── */
     main { padding: var(--gap); }
 
@@ -240,6 +260,16 @@
 
     <!-- Gallery view -->
     <div id="gallery-view">
+      <div class="controls" id="controls" style="display:none;">
+        <select class="ctrl-select" id="filter-month">
+          <option value="">All months</option>
+        </select>
+        <select class="ctrl-select" id="filter-year">
+          <option value="">All years</option>
+        </select>
+        <button class="ctrl-btn" id="sort-btn" data-order="desc">Newest first</button>
+        <span class="ctrl-count" id="photo-count"></span>
+      </div>
       <div class="patchwork" id="patchwork"></div>
     </div>
 
@@ -292,6 +322,78 @@
     let allImages = [];
     let currentIndex = 0;
 
+    const MONTHS = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+
+    function parseDate(str) {
+      if (!str) return null;
+      // EXIF format: "2024:07:14 10:32:00" — normalize to ISO
+      const iso = str.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+      const d = new Date(iso);
+      return isNaN(d) ? null : d;
+    }
+
+    function buildControls(images) {
+      const years  = new Set();
+      const months = new Set();
+      images.forEach(img => {
+        const d = parseDate(img.taken);
+        if (!d) return;
+        years.add(d.getFullYear());
+        months.add(d.getMonth()); // 0-indexed
+      });
+
+      const yearSel  = document.getElementById('filter-year');
+      const monthSel = document.getElementById('filter-month');
+
+      [...years].sort((a,b) => b - a).forEach(y => {
+        const o = document.createElement('option');
+        o.value = y; o.textContent = y;
+        yearSel.appendChild(o);
+      });
+
+      [...months].sort((a,b) => a - b).forEach(m => {
+        const o = document.createElement('option');
+        o.value = m; o.textContent = MONTHS[m];
+        monthSel.appendChild(o);
+      });
+
+      document.getElementById('controls').style.display = 'flex';
+    }
+
+    function applyFilters() {
+      const year  = document.getElementById('filter-year').value;
+      const month = document.getElementById('filter-month').value;
+      const order = document.getElementById('sort-btn').dataset.order;
+
+      let filtered = allImages.filter(img => {
+        const d = parseDate(img.taken);
+        if (year  && (!d || d.getFullYear() !== +year))  return false;
+        if (month !== '' && (!d || d.getMonth() !== +month)) return false;
+        return true;
+      });
+
+      filtered.sort((a, b) => {
+        const da = parseDate(a.taken), db = parseDate(b.taken);
+        const ta = da ? da.getTime() : 0, tb = db ? db.getTime() : 0;
+        return order === 'asc' ? ta - tb : tb - ta;
+      });
+
+      renderGallery(filtered);
+      document.getElementById('photo-count').textContent =
+        `${filtered.length} photo${filtered.length !== 1 ? 's' : ''}`;
+    }
+
+    document.getElementById('filter-year').addEventListener('change', applyFilters);
+    document.getElementById('filter-month').addEventListener('change', applyFilters);
+    document.getElementById('sort-btn').addEventListener('click', () => {
+      const btn = document.getElementById('sort-btn');
+      const next = btn.dataset.order === 'desc' ? 'asc' : 'desc';
+      btn.dataset.order = next;
+      btn.textContent = next === 'asc' ? 'Oldest first' : 'Newest first';
+      applyFilters();
+    });
+
     async function loadGallery() {
       showLoading();
       showSkeletons();
@@ -301,7 +403,8 @@
         if (!res.ok) throw new Error(`API error ${res.status}`);
         allImages = await res.json();
 
-        renderGallery(allImages);
+        buildControls(allImages);
+        applyFilters();
         hideLoading();
         document.getElementById('gallery-view').classList.add('active');
       } catch (err) {

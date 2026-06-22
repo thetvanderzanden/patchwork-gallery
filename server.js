@@ -104,7 +104,7 @@ app.get('/api/images', async (req, res) => {
         location,
         width:    file.imageMediaMetadata?.width  || null,
         height:   file.imageMediaMetadata?.height || null,
-        created:  file.createdTime
+        taken:    file.imageMediaMetadata?.time   || file.createdTime || null
       };
     }));
 
