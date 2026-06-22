@@ -276,7 +276,6 @@
         <span class="ctrl-count" id="photo-count"></span>
       </div>
       <div class="patchwork" id="patchwork"></div>
-      <div id="scroll-sentinel" style="height:1px;"></div>
     </div>
 
     <!-- Content view -->
@@ -327,8 +326,6 @@
     // ── Fetch images ─────────────────────────────────────────────────────
     let allImages = [];
     let filteredImages = [];
-    let visibleCount = 0;
-    const PAGE_SIZE = 20;
     let currentIndex = 0;
 
     const MONTHS = ['January','February','March','April','May','June',
@@ -388,33 +385,28 @@
         return order === 'asc' ? ta - tb : tb - ta;
       });
 
-      visibleCount = 0;
-      document.getElementById('patchwork').innerHTML = '';
-      appendPage();
+      renderGallery(filteredImages);
 
       document.getElementById('photo-count').textContent =
         `${filteredImages.length} photo${filteredImages.length !== 1 ? 's' : ''}`;
     }
 
-    function appendPage() {
+    function renderGallery(images) {
       const grid = document.getElementById('patchwork');
-      const batch = filteredImages.slice(visibleCount, visibleCount + PAGE_SIZE);
+      grid.innerHTML = '';
 
-      if (!visibleCount && !batch.length) {
+      if (!images.length) {
         grid.innerHTML = '<p style="color:var(--muted);padding:2rem;">No photos match this filter.</p>';
-        // nothing to show
         return;
       }
 
-      batch.forEach((img) => {
-        const globalIndex = filteredImages.indexOf(img);
+      images.forEach((img, i) => {
         const patch = document.createElement('div');
         patch.className = 'patch';
 
         const el = document.createElement('img');
         el.src = `${window.API_BASE}/api/image/${img.id}`;
         el.alt = img.name;
-        el.loading = 'lazy';
 
         const hoverText = img.location || img.caption || null;
         if (hoverText) {
@@ -428,11 +420,9 @@
         }
 
         patch.appendChild(el);
-        patch.addEventListener('click', () => openLightbox(globalIndex));
+        patch.addEventListener('click', () => openLightbox(i));
         grid.appendChild(patch);
       });
-
-      visibleCount += batch.length;
     }
 
     document.getElementById('filter-year').addEventListener('change', applyFilters);
@@ -476,13 +466,6 @@
       }
     }
 
-    // ── Infinite scroll via sentinel ──────────────────────────────────────
-    const scrollObserver = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && visibleCount < filteredImages.length) {
-        appendPage();
-      }
-    }, { rootMargin: '400px' });
-    scrollObserver.observe(document.getElementById('scroll-sentinel'));
 
     // ── Fetch content ─────────────────────────────────────────────────────
     async function loadContent() {
