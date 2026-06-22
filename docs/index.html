@@ -102,22 +102,24 @@
     #gallery-view { display: none; }
     #gallery-view.active { display: block; }
 
-    /* CSS columns — each image renders at its natural aspect ratio, no cropping */
+    /* Flex rows — images flow left-to-right, natural width, uniform row height */
     .patchwork {
-      columns: 4 200px;
-      column-gap: var(--gap);
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--gap);
+      align-items: flex-start;
     }
 
     .patch {
-      break-inside: avoid;
-      margin-bottom: var(--gap);
+      flex: 1 0 auto;
       position: relative; cursor: pointer;
       border-radius: 4px; overflow: hidden;
       background: var(--surface);
     }
 
     .patch img {
-      width: 100%; height: auto;
+      height: 220px;
+      width: auto;
       display: block;
       transition: transform 0.4s ease, filter 0.3s ease;
     }
@@ -140,8 +142,8 @@
 
     /* Skeleton loaders */
     .patch-skeleton {
-      break-inside: avoid;
-      margin-bottom: var(--gap);
+      flex: 1 0 200px;
+      height: 220px;
       border-radius: 4px;
       background: var(--surface);
       animation: pulse 1.4s ease-in-out infinite;
@@ -150,6 +152,8 @@
       0%, 100% { opacity: 0.4; }
       50%       { opacity: 0.8; }
     }
+
+    @media (max-width: 600px) { .patch img { height: 150px; } }
 
     /* ── CONTENT VIEW ───────────────────────────────────────────────────── */
     #content-view { display: none; padding: 3rem 5%; max-width: 1100px; margin: 0 auto; }
