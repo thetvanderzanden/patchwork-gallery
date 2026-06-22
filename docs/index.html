@@ -282,6 +282,9 @@
         <span class="ctrl-count" id="photo-count"></span>
       </div>
       <div class="patchwork" id="patchwork"></div>
+      <div id="load-more-wrap" style="display:none; text-align:center; padding:1.5rem 1rem;">
+        <button class="ctrl-btn" id="load-more-btn" style="padding:0.6rem 2rem; font-size:0.9rem;">Load more</button>
+      </div>
     </div>
 
     <!-- Content view -->
@@ -332,6 +335,7 @@
     // ── Fetch images ─────────────────────────────────────────────────────
     let allImages = [];
     let filteredImages = [];
+    let nextPageToken = null;
     let currentIndex = 0;
 
     const MONTHS = ['January','February','March','April','May','June',
@@ -441,23 +445,52 @@
       applyFilters();
     });
 
+    async function fetchImages(pageToken) {
+      const url = pageToken
+        ? `${window.API_BASE}/api/images?pageToken=${encodeURIComponent(pageToken)}`
+        : `${window.API_BASE}/api/images`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      return res.json();
+    }
+
     async function loadGallery() {
       showLoading();
       showSkeletons();
 
       try {
-        const res = await fetch(`${window.API_BASE}/api/images`);
-        if (!res.ok) throw new Error(`API error ${res.status}`);
-        allImages = await res.json();
+        const data = await fetchImages();
+        allImages = data.images;
+        nextPageToken = data.nextPageToken;
 
         buildControls(allImages);
         applyFilters();
         hideLoading();
         document.getElementById('gallery-view').classList.add('active');
+        document.getElementById('load-more-wrap').style.display = nextPageToken ? 'block' : 'none';
       } catch (err) {
         showError(`Could not load photos: ${err.message}`);
       }
     }
+
+    document.getElementById('load-more-btn').addEventListener('click', async () => {
+      if (!nextPageToken) return;
+      const btn = document.getElementById('load-more-btn');
+      btn.textContent = 'Loading…';
+      btn.disabled = true;
+      try {
+        const data = await fetchImages(nextPageToken);
+        allImages = allImages.concat(data.images);
+        nextPageToken = data.nextPageToken;
+        applyFilters();
+        document.getElementById('load-more-wrap').style.display = nextPageToken ? 'block' : 'none';
+      } catch (err) {
+        alert(`Could not load more: ${err.message}`);
+      } finally {
+        btn.textContent = 'Load more';
+        btn.disabled = false;
+      }
+    });
 
     function showSkeletons() {
       const grid = document.getElementById('patchwork');
