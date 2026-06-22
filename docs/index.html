@@ -340,18 +340,18 @@
         el.alt = img.name;
         el.loading = 'lazy';
 
-        const overlay = document.createElement('div');
-        overlay.className = 'patch-overlay';
         const hoverText = img.location || img.caption || null;
         if (hoverText) {
+          const overlay = document.createElement('div');
+          overlay.className = 'patch-overlay';
           const cap = document.createElement('div');
           cap.className = 'patch-caption';
           cap.textContent = hoverText;
           overlay.appendChild(cap);
+          patch.appendChild(overlay);
         }
 
         patch.appendChild(el);
-        patch.appendChild(overlay);
         patch.addEventListener('click', () => openLightbox(i));
         grid.appendChild(patch);
       });
