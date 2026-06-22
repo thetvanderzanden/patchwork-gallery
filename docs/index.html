@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gallery</title>
+
+  <!-- REPLACE with your backend Railway URL -->
+  <script>window.API_BASE = 'https://YOUR-RAILWAY-APP.railway.app';</script>
+
+  <style>
+    :root {
+      --bg:        #0F0F0F;
+      --surface:   #1A1A1A;
+      --border:    #2A2A2A;
+      --text:      #F0F0F0;
+      --muted:     #888;
+      --accent:    #E0E0E0;
+      --gap:       6px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── NAV ────────────────────────────────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(15,15,15,0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 5%;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+
+    .site-title {
+      font-size: 1.1rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text);
+    }
+
+    .nav-tabs { display: flex; gap: 0; }
+
+    .tab-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-family: inherit;
+      font-size: 0.85rem; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 0.5rem 1.2rem; border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .tab-btn.active { color: var(--text); background: rgba(255,255,255,0.1); }
+
+    /* ── MAIN ───────────────────────────────────────────────────────────── */
+    main { padding: var(--gap); }
+
+    /* ── LOADING / ERROR STATES ─────────────────────────────────────────── */
+    .state-msg {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 60vh; gap: 1rem;
+      color: var(--muted); font-size: 0.95rem;
+    }
+    .state-msg .icon { font-size: 2.5rem; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── PATCHWORK GALLERY ──────────────────────────────────────────────── */
+    #gallery-view { display: none; }
+    #gallery-view.active { display: block; }
+
+    .patchwork {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: 220px;
+      gap: var(--gap);
+    }
+
+    .patch {
+      overflow: hidden; border-radius: 4px;
+      position: relative; cursor: pointer;
+      background: var(--surface);
+    }
+
+    /* Patchwork size pattern — cycles every 10 items */
+    .patch[data-size="large"]  { grid-column: span 2; grid-row: span 2; }
+    .patch[data-size="wide"]   { grid-column: span 2; grid-row: span 1; }
+    .patch[data-size="tall"]   { grid-column: span 1; grid-row: span 2; }
+    .patch[data-size="small"]  { grid-column: span 1; grid-row: span 1; }
+
+    .patch img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease, filter 0.3s ease;
+      display: block;
+    }
+
+    .patch:hover img { transform: scale(1.04); filter: brightness(0.75); }
+
+    .patch-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+      opacity: 0; transition: opacity 0.3s;
+      display: flex; align-items: flex-end; padding: 1rem;
+    }
+
+    .patch:hover .patch-overlay { opacity: 1; }
+
+    .patch-caption {
+      color: #fff; font-size: 0.85rem; font-weight: 500;
+      line-height: 1.3; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+
+    /* Skeleton loader cards */
+    .patch-skeleton {
+      background: var(--surface);
+      border-radius: 4px;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .patch-skeleton[data-size="large"]  { grid-column: span 2; grid-row: span 2; }
+    .patch-skeleton[data-size="wide"]   { grid-column: span 2; }
+    .patch-skeleton[data-size="tall"]   { grid-row: span 2; }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50%       { opacity: 0.8; }
+    }
+
+    /* ── CONTENT VIEW ───────────────────────────────────────────────────── */
+    #content-view { display: none; padding: 3rem 5%; max-width: 1100px; margin: 0 auto; }
+    #content-view.active { display: block; }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .content-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.75rem;
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .content-card.visible { opacity: 1; transform: translateY(0); }
+
+    .content-tag {
+      display: inline-block;
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 0.75rem;
+      background: var(--border); padding: 0.2rem 0.6rem; border-radius: 4px;
+    }
+
+    .content-card h2 {
+      font-size: 1.15rem; font-weight: 700; color: var(--text);
+      margin-bottom: 0.75rem; line-height: 1.3;
+    }
+
+    .content-card p {
+      font-size: 0.9rem; color: var(--muted); line-height: 1.75;
+      white-space: pre-wrap;
+    }
+
+    /* ── LIGHTBOX ───────────────────────────────────────────────────────── */
+    #lightbox {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,0.92);
+      display: none; align-items: center; justify-content: center;
+      padding: 2rem;
+    }
+    #lightbox.open { display: flex; }
+
+    .lb-inner {
+      position: relative; max-width: 90vw; max-height: 90vh;
+      display: flex; flex-direction: column; align-items: center; gap: 1rem;
+    }
+
+    #lb-img {
+      max-width: 100%; max-height: 80vh;
+      object-fit: contain; border-radius: 6px;
+      box-shadow: 0 8px 60px rgba(0,0,0,0.8);
+    }
+
+    #lb-caption { color: rgba(255,255,255,0.7); font-size: 0.9rem; text-align: center; }
+
+    .lb-close {
+      position: fixed; top: 1.5rem; right: 1.5rem;
+      background: rgba(255,255,255,0.1); border: none; cursor: pointer;
+      color: #fff; font-size: 1.5rem; width: 42px; height: 42px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .lb-close:hover { background: rgba(255,255,255,0.2); }
+
+    .lb-nav {
+      position: fixed; top: 50%; transform: translateY(-50%);
+      background: rgba(255,255,255,0.1); border: none; cursor: pointer;
+      color: #fff; font-size: 1.5rem; width: 48px; height: 48px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .lb-nav:hover { background: rgba(255,255,255,0.2); }
+    .lb-prev { left: 1rem; }
+    .lb-next { right: 1rem; }
+
+    /* ── RESPONSIVE ─────────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .patchwork { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 180px; }
+    }
+    @media (max-width: 600px) {
+      .patchwork { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
+      .patch[data-size="large"] { grid-column: span 2; grid-row: span 1; }
+      .patch[data-size="tall"]  { grid-row: span 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="site-title">Gallery</span>
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="gallery">Photos</button>
+      <button class="tab-btn" data-tab="content">Stories</button>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- Loading state -->
+    <div id="loading" class="state-msg">
+      <div class="spinner"></div>
+      <span>Loading gallery…</span>
+    </div>
+
+    <!-- Error state -->
+    <div id="error" class="state-msg" style="display:none;">
+      <div class="icon">⚠️</div>
+      <span id="error-msg">Could not load content.</span>
+    </div>
+
+    <!-- Gallery view -->
+    <div id="gallery-view">
+      <div class="patchwork" id="patchwork"></div>
+    </div>
+
+    <!-- Content view -->
+    <div id="content-view">
+      <div class="content-grid" id="content-grid"></div>
+    </div>
+
+  </main>
+
+  <!-- Lightbox -->
+  <div id="lightbox">
+    <div class="lb-inner">
+      <img id="lb-img" src="" alt="" />
+      <p id="lb-caption"></p>
+    </div>
+    <button class="lb-close" id="lb-close">&times;</button>
+    <button class="lb-nav lb-prev" id="lb-prev">&#8249;</button>
+    <button class="lb-nav lb-next" id="lb-next">&#8250;</button>
+  </div>
+
+  <script>
+    // ── Size pattern for patchwork (repeats every 10 items) ──────────────
+    const SIZE_PATTERN = [
+      'large', 'small', 'small',
+      'wide',  'small',
+      'tall',  'wide',
+      'small', 'small', 'large'
+    ];
+
+    function sizeFor(index) {
+      return SIZE_PATTERN[index % SIZE_PATTERN.length];
+    }
+
+    // ── Tab switching ────────────────────────────────────────────────────
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(btn => btn.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      document.getElementById('gallery-view').classList.toggle('active', tab === 'gallery');
+      document.getElementById('content-view').classList.toggle('active', tab === 'content');
+    }));
+
+    // ── State helpers ────────────────────────────────────────────────────
+    function showLoading() {
+      document.getElementById('loading').style.display = 'flex';
+      document.getElementById('error').style.display   = 'none';
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display   = 'flex';
+      document.getElementById('error-msg').textContent  = msg;
+    }
+
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    // ── Fetch images ─────────────────────────────────────────────────────
+    let allImages = [];
+    let currentIndex = 0;
+
+    async function loadGallery() {
+      showLoading();
+      showSkeletons();
+
+      try {
+        const res = await fetch(`${window.API_BASE}/api/images`);
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        allImages = await res.json();
+
+        renderGallery(allImages);
+        hideLoading();
+        document.getElementById('gallery-view').classList.add('active');
+      } catch (err) {
+        showError(`Could not load photos: ${err.message}`);
+      }
+    }
+
+    function showSkeletons() {
+      const grid = document.getElementById('patchwork');
+      grid.innerHTML = '';
+      for (let i = 0; i < 10; i++) {
+        const el = document.createElement('div');
+        el.className = 'patch-skeleton';
+        el.dataset.size = sizeFor(i);
+        grid.appendChild(el);
+      }
+    }
+
+    function renderGallery(images) {
+      const grid = document.getElementById('patchwork');
+      grid.innerHTML = '';
+
+      if (!images.length) {
+        grid.innerHTML = '<p style="color:var(--muted);padding:2rem;">No images found in the Drive folder.</p>';
+        return;
+      }
+
+      images.forEach((img, i) => {
+        const patch = document.createElement('div');
+        patch.className = 'patch';
+        patch.dataset.size = sizeFor(i);
+
+        const el = document.createElement('img');
+        el.src = `${window.API_BASE}/api/image/${img.id}`;
+        el.alt = img.name;
+        el.loading = 'lazy';
+
+        const overlay = document.createElement('div');
+        overlay.className = 'patch-overlay';
+        if (img.name || img.caption) {
+          const cap = document.createElement('div');
+          cap.className = 'patch-caption';
+          cap.textContent = img.caption || img.name;
+          overlay.appendChild(cap);
+        }
+
+        patch.appendChild(el);
+        patch.appendChild(overlay);
+        patch.addEventListener('click', () => openLightbox(i));
+        grid.appendChild(patch);
+      });
+    }
+
+    // ── Fetch content ─────────────────────────────────────────────────────
+    async function loadContent() {
+      const grid = document.getElementById('content-grid');
+      grid.innerHTML = '<div class="state-msg"><div class="spinner"></div><span>Loading stories…</span></div>';
+
+      try {
+        const res = await fetch(`${window.API_BASE}/api/content`);
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        const sections = await res.json();
+
+        grid.innerHTML = '';
+
+        if (!sections.length) {
+          grid.innerHTML = '<p style="color:var(--muted);">No content sections found. Add rows to the Google Sheet.</p>';
+          return;
+        }
+
+        sections.forEach((section, i) => {
+          const card = document.createElement('div');
+          card.className = 'content-card';
+          card.style.transitionDelay = `${i * 0.08}s`;
+
+          card.innerHTML = `
+            ${section.tag ? `<span class="content-tag">${section.tag}</span>` : ''}
+            <h2>${section.title}</h2>
+            <p>${section.body}</p>
+          `;
+
+          grid.appendChild(card);
+
+          // Scroll reveal for cards
+          setTimeout(() => card.classList.add('visible'), 50 + i * 80);
+        });
+      } catch (err) {
+        grid.innerHTML = `<p style="color:var(--muted);">Could not load content: ${err.message}</p>`;
+      }
+    }
+
+    // Load content when tab is switched (lazy)
+    let contentLoaded = false;
+    document.querySelector('[data-tab="content"]').addEventListener('click', () => {
+      if (!contentLoaded) { loadContent(); contentLoaded = true; }
+    });
+
+    // ── Lightbox ──────────────────────────────────────────────────────────
+    const lightbox = document.getElementById('lightbox');
+    const lbImg    = document.getElementById('lb-img');
+    const lbCap    = document.getElementById('lb-caption');
+
+    function openLightbox(index) {
+      currentIndex = index;
+      const img = allImages[index];
+      lbImg.src = `${window.API_BASE}/api/image/${img.id}`;
+      lbImg.alt = img.name;
+      lbCap.textContent = img.caption || img.name || '';
+      lightbox.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function prevImage() {
+      openLightbox((currentIndex - 1 + allImages.length) % allImages.length);
+    }
+
+    function nextImage() {
+      openLightbox((currentIndex + 1) % allImages.length);
+    }
+
+    document.getElementById('lb-close').addEventListener('click', closeLightbox);
+    document.getElementById('lb-prev').addEventListener('click', prevImage);
+    document.getElementById('lb-next').addEventListener('click', nextImage);
+    lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+
+    // Keyboard nav
+    document.addEventListener('keydown', e => {
+      if (!lightbox.classList.contains('open')) return;
+      if (e.key === 'Escape')      closeLightbox();
+      if (e.key === 'ArrowLeft')   prevImage();
+      if (e.key === 'ArrowRight')  nextImage();
+    });
+
+    // Touch swipe on lightbox
+    let touchStartX = 0;
+    lightbox.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].clientX; });
+    lightbox.addEventListener('touchend',   e => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) > 50) dx < 0 ? nextImage() : prevImage();
+    });
+
+    // ── Boot ──────────────────────────────────────────────────────────────
+    loadGallery();
+  </script>
+
+</body>
+</html>
