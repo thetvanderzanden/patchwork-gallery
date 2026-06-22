@@ -82,14 +82,19 @@ app.get('/api/images', async (req, res) => {
     const folderId = process.env.DRIVE_FOLDER_ID;
     if (!folderId) return res.status(500).json({ error: 'DRIVE_FOLDER_ID not configured' });
 
-    const response = await drive.files.list({
-      q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
-      fields: 'files(id, name, description, imageMediaMetadata, createdTime)',
-      orderBy: 'createdTime desc',
-      pageSize: 100
-    });
-
-    const files = response.data.files || [];
+    let files = [];
+    let pageToken;
+    do {
+      const response = await drive.files.list({
+        q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
+        fields: 'nextPageToken, files(id, name, description, imageMediaMetadata, createdTime)',
+        orderBy: 'createdTime desc',
+        pageSize: 1000,
+        pageToken
+      });
+      files = files.concat(response.data.files || []);
+      pageToken = response.data.nextPageToken;
+    } while (pageToken);
 
     const images = await Promise.all(files.map(async file => {
       const loc = file.imageMediaMetadata?.location;
