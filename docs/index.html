@@ -342,10 +342,11 @@
 
         const overlay = document.createElement('div');
         overlay.className = 'patch-overlay';
-        if (img.name || img.caption) {
+        const hoverText = img.location || img.caption || null;
+        if (hoverText) {
           const cap = document.createElement('div');
           cap.className = 'patch-caption';
-          cap.textContent = img.caption || img.name;
+          cap.textContent = hoverText;
           overlay.appendChild(cap);
         }
 

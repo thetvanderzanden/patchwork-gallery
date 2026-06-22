@@ -1,7 +1,42 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const https = require('https');
 const { google } = require('googleapis');
+
+// In-memory cache for reverse geocode results keyed by "lat,lng"
+const geocodeCache = new Map();
+
+function reverseGeocode(lat, lng) {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (geocodeCache.has(key)) return Promise.resolve(geocodeCache.get(key));
+
+  return new Promise(resolve => {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`;
+    const req = https.get(url, { headers: { 'User-Agent': 'patchwork-gallery/1.0' } }, res => {
+      let body = '';
+      res.on('data', d => { body += d; });
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          const addr = data.address || {};
+          const parts = [
+            addr.city || addr.town || addr.village || addr.county,
+            addr.state,
+            addr.country
+          ].filter(Boolean);
+          const label = parts.join(', ') || data.display_name || null;
+          geocodeCache.set(key, label);
+          resolve(label);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(4000, () => { req.destroy(); resolve(null); });
+  });
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,13 +89,23 @@ app.get('/api/images', async (req, res) => {
       pageSize: 100
     });
 
-    const images = (response.data.files || []).map(file => ({
-      id:          file.id,
-      name:        file.name.replace(/\.[^.]+$/, ''), // strip extension
-      caption:     file.description || '',
-      width:       file.imageMediaMetadata?.width  || null,
-      height:      file.imageMediaMetadata?.height || null,
-      created:     file.createdTime
+    const files = response.data.files || [];
+
+    const images = await Promise.all(files.map(async file => {
+      const loc = file.imageMediaMetadata?.location;
+      let location = null;
+      if (loc?.latitude != null && loc?.longitude != null) {
+        location = await reverseGeocode(loc.latitude, loc.longitude);
+      }
+      return {
+        id:       file.id,
+        name:     file.name.replace(/\.[^.]+$/, ''),
+        caption:  file.description || '',
+        location,
+        width:    file.imageMediaMetadata?.width  || null,
+        height:   file.imageMediaMetadata?.height || null,
+        created:  file.createdTime
+      };
     }));
 
     res.json(images);
